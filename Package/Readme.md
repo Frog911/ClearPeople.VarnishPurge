@@ -1,0 +1,1 @@
+Folder to hold nuget packages locally created with "pack.bat"

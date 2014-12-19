@@ -1,0 +1,1 @@
+If you need to locally build the Nuget package, download nuget.exe to this folder, from http://nuget.codeplex.com/releases/view/58939
