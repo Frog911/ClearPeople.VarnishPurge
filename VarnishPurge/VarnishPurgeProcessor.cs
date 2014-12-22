@@ -46,7 +46,8 @@ namespace ClearPeople.VarnishPurge
             {
                 PurgeItems(rootItem, context.PublishOptions.PublishRelatedItems);
             }
-
+            
+            _purgedUrls.Clear();
             Log.Info("[Varnish] Cache for '" + rootItem.Name + "' cleared in " + global.Elapsed, this);
         }
 
