@@ -2,27 +2,25 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Net;
-using Sitecore.Configuration;
 using Sitecore.Data.Comparers;
 using Sitecore.Data.Items;
 using Sitecore.Diagnostics;
 using Sitecore.Links;
 using Sitecore.Publishing.Pipelines.Publish;
-using Sitecore.Resources.Media;
 
 namespace ClearPeople.VarnishPurge
 {
+    /// <summary>
+    /// Varnish custom processor
+    /// </summary>
     public class VarnishPurgeProcessor : PublishProcessor
     {
-        private readonly UrlOptions _urlOptions;
         private readonly HashSet<string> _purgedUrls = new HashSet<string>();
 
-        public VarnishPurgeProcessor()
-        {
-            _urlOptions = new UrlOptions { Site = Factory.GetSite(VarnishSettings.Site), SiteResolving = true, LanguageEmbedding = LanguageEmbedding.Never };
-        }
-
+        /// <summary>
+        /// Processes the specified context.
+        /// </summary>
+        /// <param name="context">The context.</param>
         public override void Process(PublishContext context)
         {
             if (!VarnishSettings.Enabled) return;
@@ -33,7 +31,7 @@ namespace ClearPeople.VarnishPurge
             Assert.ArgumentNotNull(context, "context");
             if (context == null || context.PublishOptions == null || context.PublishOptions.TargetDatabase == null)
             {
-                Log.Error("Context and/or publish settings are null", this);
+                Log.Error("[" + VarnishSettings.LogHeader + "] ERROR: Context and/or publish settings are null", this);
                 return;
             }
 
@@ -46,28 +44,9 @@ namespace ClearPeople.VarnishPurge
             {
                 PurgeItems(rootItem, context.PublishOptions.PublishRelatedItems);
             }
-            
-            _purgedUrls.Clear();
-            Log.Info("[Varnish] Cache for '" + rootItem.Name + "' cleared in " + global.Elapsed, this);
-        }
 
-        /// <summary>
-        /// Purges the item.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="publishRelatedItems">if set to <c>true</c> also tries to purge the related items.</param>
-        private void PurgeItem(Item item, bool publishRelatedItems)
-        {
-            if ((item.Paths.IsMediaItem && !item.HasChildren) || item.Paths.IsContentItem)
-                StartWebRequest(item);
-
-            if (!publishRelatedItems) return;
-
-            var referenced = GetReferences(item);
-            foreach (var relatedItem in referenced.Where(relatedItem => (relatedItem.Paths.IsMediaItem && !relatedItem.HasChildren) || relatedItem.Paths.IsContentItem))
-            {
-                StartWebRequest(relatedItem);
-            }
+            ClearLocalCache();
+            Log.Info("[" + VarnishSettings.LogHeader + "] Cache for '" + rootItem.Name + "' cleared in " + global.Elapsed, this);
         }
 
         /// <summary>
@@ -83,6 +62,51 @@ namespace ClearPeople.VarnishPurge
             {
                 PurgeItems(child, publishRelatedItems);
             }
+        }
+
+        /// <summary>
+        /// Purges the item.
+        /// </summary>
+        /// <param name="item">The item.</param>
+        /// <param name="publishRelatedItems">if set to <c>true</c> also tries to purge the related items.</param>
+        private void PurgeItem(Item item, bool publishRelatedItems)
+        {
+            if ((item.Paths.IsMediaItem && !item.HasChildren) || item.Paths.IsContentItem)
+            {
+                if(AddToLocalCache(item))
+                    VarnishCache.Clear(item);
+            }
+
+            if (!publishRelatedItems) return;
+
+            var referenced = GetReferences(item);
+            foreach (var relatedItem in referenced.Where(relatedItem => (relatedItem.Paths.IsMediaItem && !relatedItem.HasChildren) || relatedItem.Paths.IsContentItem).Where(AddToLocalCache))
+            {
+                VarnishCache.Clear(relatedItem);
+            }
+        }
+
+        /// <summary>
+        /// Adds the url to the local cache, to avoid duplicating requests.
+        /// </summary>
+        /// <param name="item">The item.</param>
+        private bool AddToLocalCache(Item item)
+        {
+            var url = VarnishCache.GetRelativeItemUrl(item);
+            var finalUrl = VarnishSettings.Url + url;
+            var cachedUrl = String.IsNullOrEmpty(VarnishSettings.Host) ? finalUrl : "http://" + VarnishSettings.Host + url;
+            if (_purgedUrls.Contains(cachedUrl)) return false;
+
+            _purgedUrls.Add(cachedUrl);
+            return true;
+        }
+
+        /// <summary>
+        /// Clears the local cache.
+        /// </summary>
+        private void ClearLocalCache()
+        {
+            _purgedUrls.Clear();
         }
 
         /// <summary>
@@ -113,55 +137,5 @@ namespace ClearPeople.VarnishPurge
             return items.Distinct(new ItemIdComparer());
         }
 
-        /// <summary>
-        /// Starts the web request.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        private void StartWebRequest(Item item)
-        {
-            string url = item.Paths.IsMediaItem
-                ? MediaManager.GetMediaUrl(item)
-                : LinkManager.GetItemUrl(item, _urlOptions);
-            var finalUrl = VarnishSettings.Url + url;
-            var cachedUrl = String.IsNullOrEmpty(VarnishSettings.Host) ? finalUrl : "http://" + VarnishSettings.Host + url;
-            if (_purgedUrls.Contains(cachedUrl)) return;
-
-            _purgedUrls.Add(cachedUrl);
-            try
-            {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(finalUrl);
-                request.Method = VarnishSettings.HttpMethod;
-                if (!String.IsNullOrEmpty(VarnishSettings.Host))
-                    request.Host = VarnishSettings.Host;
-                request.BeginGetResponse(FinishWebRequest, request);
-            }
-            catch (Exception ex)
-            {
-                Log.Error("[Varnish ERROR] " + ex.Message + Environment.NewLine + ex.StackTrace, this);
-            }
-        }
-
-        /// <summary>
-        /// Finishes the web request.
-        /// </summary>
-        /// <param name="result">The result.</param>
-        private void FinishWebRequest(IAsyncResult result)
-        {
-            HttpWebResponse response = ((HttpWebRequest)result.AsyncState).EndGetResponse(result) as HttpWebResponse;
-            if (response == null)
-            {
-                Log.Error("[Varnish ERROR] The server didn't return any Response.", this);
-                return;
-            }
-            switch (response.StatusCode)
-            {
-                case HttpStatusCode.OK:
-                    Log.Info("[Varnish] Url cleared: " + response.ResponseUri, this);
-                    break;
-                default:
-                    Log.Error("[Varnish ERROR] Server returned " + response.StatusCode + " code. " + response.StatusDescription, this);
-                    break;
-            }
-        }
     }
 }

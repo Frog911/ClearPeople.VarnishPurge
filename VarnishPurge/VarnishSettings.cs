@@ -14,6 +14,7 @@ namespace ClearPeople.VarnishPurge
         private static string _method;
         private static string _enabledValue;
         private static bool _enabled;
+        private static string _logHeader;
 
         /// <summary>
         /// Gets the Sitecore site. Used to get proper URLs from items
@@ -111,6 +112,25 @@ namespace ClearPeople.VarnishPurge
             }
         }
 
+        /// <summary>
+        /// Gets the log header String to be appended to log messages.
+        /// </summary>
+        /// <value>
+        /// The log header.
+        /// </value>
+        public static String LogHeader
+        {
+            get
+            {
+                if (!String.IsNullOrEmpty(_logHeader))
+                    return _logHeader;
+
+                _logHeader = String.IsNullOrEmpty(Settings.GetSetting("Varnish.LogHeader"))
+                            ? "Varnish"
+                            : Settings.GetSetting("Varnish.LogHeader");
+                return _logHeader;
+            }
+        }
 
     }
 }
