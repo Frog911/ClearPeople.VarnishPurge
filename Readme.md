@@ -22,4 +22,4 @@ This is a beta release, but should be stable enough to play around with it. The 
 
 We are not related with Varnish in any way. This is not an official Varnish library. It's just a small piece of our work at [ClearPeople](http://www.clearpeople.com) :)
 
-The license applied for using this software is the [MIT License](/ClearPeople.Varnish/License.txt).
+The license applied for using this software is the [MIT License](VarnishPurge/License.txt).
