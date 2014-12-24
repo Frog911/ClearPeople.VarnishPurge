@@ -13,14 +13,14 @@ namespace ClearPeople.VarnishPurge
     /// </summary>
     public class VarnishCache
     {
-        private static readonly UrlOptions UrlOptions;
+        private static readonly UrlOptions _urlOptions;
 
         /// <summary>
         /// Initializes the <see cref="VarnishCache"/> class.
         /// </summary>
         static VarnishCache()
         {
-            UrlOptions = new UrlOptions { Site = Factory.GetSite(VarnishSettings.Site), SiteResolving = true, LanguageEmbedding = LanguageEmbedding.Never };
+            _urlOptions = new UrlOptions { Site = Factory.GetSite(VarnishSettings.Site), SiteResolving = true, LanguageEmbedding = LanguageEmbedding.Never };
         }
 
         #region " Public methods "
@@ -63,7 +63,7 @@ namespace ClearPeople.VarnishPurge
         {
             return item.Paths.IsMediaItem
                 ? MediaManager.GetMediaUrl(item)
-                : LinkManager.GetItemUrl(item, UrlOptions);
+                : LinkManager.GetItemUrl(item, _urlOptions);
         }
 
         #endregion
