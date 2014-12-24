@@ -12,6 +12,7 @@ namespace ClearPeople.VarnishPurge
         private static string _url;
         private static string _host;
         private static string _method;
+        private static string _clearMethod;
         private static string _enabledValue;
         private static bool _enabled;
         private static string _logHeader;
@@ -90,6 +91,20 @@ namespace ClearPeople.VarnishPurge
                             ? "PURGE"
                             : Settings.GetSetting("Varnish.Method");
                 return _method;
+            }
+        }
+
+        public static String HttpClearMethod
+        {
+            get
+            {
+                if (!String.IsNullOrEmpty(_clearMethod))
+                    return _clearMethod;
+
+                _clearMethod = String.IsNullOrEmpty(Settings.GetSetting("Varnish.ClearMethod"))
+                            ? "BAN"
+                            : Settings.GetSetting("Varnish.ClearMethod");
+                return _clearMethod;
             }
         }
 

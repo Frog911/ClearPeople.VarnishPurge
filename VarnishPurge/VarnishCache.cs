@@ -41,7 +41,15 @@ namespace ClearPeople.VarnishPurge
         /// <param name="url">The url to clear.</param>
         public static void Clear(string url)
         {
-            StartWebRequest(url);
+            StartWebRequest(url, VarnishSettings.HttpMethod);
+        }
+
+        /// <summary>
+        /// Clears the cached objects for all the site.
+        /// </summary>
+        public static void ClearSite()
+        {
+            StartWebRequest(VarnishSettings.Url, VarnishSettings.HttpClearMethod);
         }
 
         /// <summary>
@@ -74,12 +82,13 @@ namespace ClearPeople.VarnishPurge
         /// Starts the web request.
         /// </summary>
         /// <param name="url">The item.</param>
-        private static void StartWebRequest(string url)
+        /// <param name="method">The default HTTP method.</param>
+        private static void StartWebRequest(string url, string method)
         {
             try
             {
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-                request.Method = VarnishSettings.HttpMethod;
+                request.Method = method;
                 if (!String.IsNullOrEmpty(VarnishSettings.Host))
                     request.Host = VarnishSettings.Host;
                 request.BeginGetResponse(FinishWebRequest, request);
