@@ -6,7 +6,7 @@ You can find all the related information about Varnish at [https://www.varnish-c
 
 You can find more information about this plugins features and configuration at [ClearPeople Blog].
 
-## Installation
+## Installation [NOT PUBLISHED YET]
 
 Just use Nuget [http://www.nuget.org/packages/ClearPeople.VarnishPurge/](http://www.nuget.org/packages/ClearPeople.VarnishPurge/): 
 
